@@ -57,14 +57,26 @@ export const GROUPS = [
   },
   {
     id: 'quotes',
-    title: 'Quotes and diary notice',
-    note: 'The daily quote and the notice printed on diaries.',
+    title: 'Daily quotes',
+    note: 'The quote printed on diaries.',
     caps: [
       ['quotes.view', 'View quotes'],
       ['quotes.create', 'Add quotes'],
       ['quotes.edit', 'Edit quotes'],
       ['quotes.delete', 'Delete quotes'],
-      ['quotes.manage', 'Full control, including the diary notice'],
+      ['quotes.manage', 'Full control of quotes'],
+    ],
+  },
+  {
+    id: 'notices',
+    title: 'Diary notices',
+    note: 'Notices printed on the diaries of the classes they are assigned to.',
+    caps: [
+      ['notices.view', 'View notices'],
+      ['notices.create', 'Add notices'],
+      ['notices.edit', 'Edit, publish and hide notices'],
+      ['notices.delete', 'Delete notices'],
+      ['notices.manage', 'Full control of notices'],
     ],
   },
   {

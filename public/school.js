@@ -160,7 +160,7 @@ export function schoolUI({
     if (has('parents.manage')) items.push(['parents', 'users', 'Parent access']);
     if (has('permissions.manage')) items.push(['permissions', 'settings', 'Permissions']);
     if (has('quotes.manage')) items.push(['quotes', 'quote', 'Daily quotes']);
-    if (has('quotes.manage')) items.push(['notice', 'bell', 'Diary notice']);
+    if (has('notices.view')) items.push(['notice', 'bell', 'Diary notices']);
     if (has('reports.view')) items.push(['reports', 'chart', 'Diary reports']);
     items.push(['notifications', 'bell', 'Notifications']);
     if (has('audit.view') && isAdmin()) items.push(['audit', 'clock', 'Audit history']);
@@ -1486,36 +1486,53 @@ export function schoolUI({
         ),
       );
   }
+  // Class choices for a notice: campus name helps tell same-named classes apart.
+  function noticeClasses(s) {
+    const campusOf = (c) =>
+      s.nodes.find((n) => n.id === s.classCampuses.find((m) => m.class_id === c.id)?.campus_id)?.name;
+    return academic(s, 'class')
+      .filter((c) => c.active)
+      .map((c) => ({ id: c.id, name: (campusOf(c) ? campusOf(c) + ' · ' : '') + c.name }));
+  }
   async function diaryNotice() {
-    const { notice: n } = await api('/api/school/notice');
-    state.schoolNotice = n;
+    const { notices } = await api('/api/school/notices'),
+      s = state.schoolConfig,
+      classes = noticeClasses(s),
+      className = (id) => classes.find((c) => c.id === id)?.name || name(s, id);
+    state.schoolNotices = notices;
     const labels = { en: 'Notice', ur: 'اطلاعیہ', ar: 'إعلان' },
-      hasText = !!(n.text || '').trim(),
-      range =
+      scope = (n) =>
+        n.class_ids?.length
+          ? n.class_ids.map((id) => `<span class="badge">${esc(className(id))}</span>`).join(' ')
+          : '<span class="badge">All classes</span>',
+      range = (n) =>
         (n.startDate ? 'from ' + esc(n.startDate) : 'from the day it is published') +
-        (n.endDate ? ' to ' + esc(n.endDate) : ' until you hide it');
+        (n.endDate ? ' to ' + esc(n.endDate) : ' until you hide it'),
+      item = (n) =>
+        card(
+          esc(n.title || 'Notice'),
+          `<div class="cardbody"><p>${badge(n.published ? 'published' : 'hidden')} ${scope(n)}</p><p class="muted">Printed ${range(n)}.</p><section class="homework-notice notice-preview"><div class="homework-notice-head"><span lang="${esc(n.language)}" dir="${n.language === 'en' ? 'ltr' : 'rtl'}">${esc(labels[n.language] || 'Notice')}</span></div><div class="homework-notice-body" lang="${esc(n.language)}" dir="${n.language === 'en' ? 'ltr' : 'rtl'}"><p>${esc(n.text)}</p></div></section><div class="actions">${
+            has('notices.edit')
+              ? button('Edit', 'school-edit-notice', '', `data-id="${esc(n.id)}"`) +
+                button(
+                  n.published ? 'Hide' : 'Publish',
+                  'school-toggle-notice',
+                  n.published ? '' : 'primary',
+                  `data-id="${esc(n.id)}" data-published="${!n.published}"`,
+                )
+              : ''
+          }${has('notices.delete') ? button('Delete', 'school-delete-notice', '', `data-id="${esc(n.id)}"`) : ''}</div></div>`,
+        );
     $('#content').innerHTML =
       heading(
-        'Diary notice',
-        'A boxed notice printed under the homework table and above the daily quote. It stays hidden until you publish it.',
-        button(hasText ? 'Edit notice' : 'Write notice', 'school-edit-notice', 'primary'),
+        'Diary notices',
+        'Boxed notices printed under the homework table and above the daily quote, on the diaries of the classes you choose.',
+        has('notices.create') ? button('Add notice', 'school-edit-notice', 'primary') : '',
       ) +
-      `<div class="callout">Status: ${badge(n.published && hasText ? 'published' : 'hidden')} ${
-        n.published && hasText
-          ? 'The notice is printed on diaries dated ' + range + '.'
-          : 'No notice is printed on any diary.'
-      } Keep it short (400 characters at most) so the diary still fits one A4 page.</div>` +
-      card(
-        'Preview',
-        hasText
-          ? `<section class="homework-notice notice-preview"><div class="homework-notice-head"><span lang="${n.language}" dir="${n.language === 'en' ? 'ltr' : 'rtl'}">${esc(labels[n.language] || 'Notice')}</span></div><div class="homework-notice-body" lang="${n.language}" dir="${n.language === 'en' ? 'ltr' : 'rtl'}">${n.title ? `<strong class="homework-notice-title">${esc(n.title)}</strong>` : ''}<p>${esc(n.text)}</p></div></section>` +
-              `<div class="actions">${
-                n.published
-                  ? button('Hide notice', 'school-toggle-notice', '', 'data-published="false"')
-                  : button('Publish notice', 'school-toggle-notice', 'primary', 'data-published="true"')
-              }</div>`
-          : '<p class="muted">No notice written yet. Choose “Write notice”, then publish it when you want it to appear.</p>',
-      );
+      `<div class="callout">Add as many notices as you need, each for its own classes and dates. A class shows up to 3 notices on the same day, 600 characters in total, so the diary still fits one A4 page. A notice stays hidden until you publish it.</div>` +
+      (notices.length
+        ? notices.map(item).join('')
+        : empty('No notices yet', 'Choose “Add notice”, then publish it when you want it to appear.'));
   }
   const permissionsUI = permissionsWorkspace({ api, state, esc, heading, toast, render, roles });
   const permissions = () => permissionsUI.page();
@@ -2185,9 +2202,11 @@ export function schoolUI({
       await render();
     }
     if (action === 'school-edit-notice') {
-      const n = state.schoolNotice || {};
+      const n = state.schoolNotices.find((x) => x.id === target.dataset.id) || {},
+        classes = noticeClasses(state.schoolConfig),
+        everywhere = !n.class_ids?.length;
       modal(
-        'Diary notice',
+        n.id ? 'Edit notice' : 'Add notice',
         field('Title (optional)', 'title', 'text', n.title || '', 'maxlength="80"') +
           select(
             'Notice language',
@@ -2203,6 +2222,7 @@ export function schoolUI({
           '<label class="field">Notice text<textarea name="text" dir="auto" maxlength="400" rows="5" required>' +
           esc(n.text || '') +
           '</textarea></label>' +
+          `<fieldset><legend>Show on</legend><label class="checkbox"><input type="checkbox" name="all_classes" ${everywhere ? 'checked' : ''}>All classes</label><div data-notice-classes ${everywhere ? 'hidden' : ''}>${checks('class_ids', classes, n.class_ids || [])}</div></fieldset>` +
           select(
             'Status',
             'published',
@@ -2216,27 +2236,39 @@ export function schoolUI({
           field('Show from (optional)', 'startDate', 'date', n.startDate || '', '') +
           field('Show until (optional)', 'endDate', 'date', n.endDate || '', '') +
           '<p class="muted">If you leave “Show from” empty, a published notice starts today. Older diaries are not changed.</p>',
-        (d) =>
-          api('/api/school/notice', {
-            method: 'PUT',
+        (d) => {
+          const chosen = $$('input[name=class_ids]:checked', $('#modal-form')).map((x) => x.value);
+          if (!d.all_classes && !chosen.length) throw new Error('Choose at least one class, or All classes.');
+          return api('/api/school/notices' + (n.id ? '/' + n.id : ''), {
+            method: n.id ? 'PUT' : 'POST',
             body: {
               title: d.title || '',
               text: d.text,
               language: d.language,
               published: d.published === 'true',
+              class_ids: d.all_classes ? [] : chosen,
               startDate: d.startDate || '',
               endDate: d.endDate || '',
             },
-          }),
+          });
+        },
       );
+      const box = $('[name=all_classes]', $('#modal-form'));
+      box.addEventListener('change', () => ($('[data-notice-classes]').hidden = box.checked));
     }
     if (action === 'school-toggle-notice') {
-      await api('/api/school/notice', {
+      await api('/api/school/notices/' + target.dataset.id, {
         method: 'PUT',
         body: { published: target.dataset.published === 'true' },
       });
       await render();
     }
+    if (action === 'school-delete-notice')
+      modal(
+        'Delete notice',
+        '<p>This notice stops appearing on every diary. Diaries already printed are not changed.</p>',
+        () => api('/api/school/notices/' + target.dataset.id, { method: 'DELETE' }),
+      );
     if (action === 'school-add-quote')
       modal(
         'Schedule school-wide quote',

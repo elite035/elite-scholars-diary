@@ -98,6 +98,9 @@ const bell = svg(
   '<path d="M12 2a6 6 0 0 0-6 6v4l-2 3v1h16v-1l-2-3V8a6 6 0 0 0-6-6Zm-2.5 17a2.5 2.5 0 0 0 5 0h-5Z"/>',
 );
 // Optional school notice. Rendered only when the administrator has published one for this diary date.
+function noticesHtml(list) {
+  return [].concat(list || []).map(noticeHtml).join('');
+}
 function noticeHtml(n) {
   if (!n || !String(n.text || '').trim()) return '';
   const lang = ['en', 'ur', 'ar'].includes(n.language) ? n.language : 'en',
@@ -155,7 +158,7 @@ export function homeworkSource(d) {
     )
     .join(
       '',
-    )}</div><div class="homework-columns"><div>Subject</div><div>Detail of Home Work</div><div>H.W</div><div>L.W</div><div>Test</div></div></div></template><template class="footer"><div class="homework-footer">${noticeHtml(d.notice_snapshot)}${quotesHtml(d.quote_snapshot)}</div></template><div class="blocks">${rows
+    )}</div><div class="homework-columns"><div>Subject</div><div>Detail of Home Work</div><div>H.W</div><div>L.W</div><div>Test</div></div></div></template><template class="footer"><div class="homework-footer">${noticesHtml(d.notice_snapshot)}${quotesHtml(d.quote_snapshot)}</div></template><div class="blocks">${rows
     .map((row) => {
       const language = subjectLanguage(row, d.language);
       return `<section class="block homework-row"><h2>${esc(row.subject || 'Subject')}</h2><div class="text" lang="${esc(language)}" dir="${esc(language ? languageDirection(language) : row.direction || 'auto')}">${esc(/^\s*[-–—]\s*$/.test(row.detail || '') ? '' : row.detail || '')}</div>${['hw', 'learn', 'test'].map((k) => `<div class="homework-mark" aria-label="${row[k] ? 'Checked' : 'Not checked'}">${row[k] ? '<svg class="homework-check" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>' : ''}</div>`).join('')}</section>`;

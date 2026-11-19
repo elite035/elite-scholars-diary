@@ -93,4 +93,6 @@ Teacher campus setup is available on Teacher Assignments to authorized administr
 
 Cloud backups use AES-256-GCM and read existing ESSB1 archives. New ESSB2 archives store repeated data-URI branding once and restore the exact original historical JSON strings. Both creation and recovery enforce a 256 MB uncompressed payload limit; hosted archives also retain the existing 48 MB compressed/encrypted limit. This supports the current larger historical snapshots without unbounded decompression. Scheduled backup outcomes are recorded as cloud_backup_completed or cloud_backup_failed in Audit History. Hosting quota restrictions return an actionable 503 error. Resolve provider restrictions before relying on scheduled hosted backups; a successful database/cron query alone does not verify storage availability.
 
+## Diary notices
 
+Super Admin and School Admin manage notices under **Diary notices**; other staff can be given the separate *Diary notices* permissions (view, add, edit/publish, delete) in Permissions. Each notice has its own classes (or all classes), language, and dates. A class shows up to 3 published notices on the same day, 600 characters in total, so the diary still fits one A4 page. Notices are stored in the school settings, so no database change is needed; a notice saved by an earlier version becomes an all-classes notice.

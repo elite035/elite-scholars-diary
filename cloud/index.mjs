@@ -956,7 +956,7 @@ async function api(req, res, url) {
     return reply(res, 200, { ok: true });
   }
   if (path === '/api/settings' && method === 'GET') {
-    const { diaryNotice: _notice, ...publicSettings } = settings();
+    const { diaryNotice: _notice, diaryNotices: _notices, ...publicSettings } = settings();
     return reply(res, 200, publicSettings);
   }
   if (path === '/api/settings' && method === 'PUT') {

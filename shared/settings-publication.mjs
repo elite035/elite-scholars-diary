@@ -13,6 +13,7 @@ export function preserveSettingsLinks(proposed, current, expected) {
     ...proposed,
     teacherCampusAssignments: current.teacherCampusAssignments || {},
     ...(current.diaryNotice !== undefined ? { diaryNotice: current.diaryNotice } : {}),
+    ...(current.diaryNotices !== undefined ? { diaryNotices: current.diaryNotices } : {}),
     ...(current.assignmentSessionId !== undefined
       ? { assignmentSessionId: current.assignmentSessionId }
       : {}),

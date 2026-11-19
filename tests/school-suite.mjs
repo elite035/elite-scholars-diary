@@ -10,16 +10,19 @@ export async function suite(runtime){
  let branch,campus,klass,section,otherSection,english,urdu,parent,parentB,diary,second,quote;
  const setCampus=async(teacherId,campusId)=>{const map=(await db.one('SELECT value FROM settings WHERE id=1')).value;const current=(typeof map==='string'?JSON.parse(map):map).teacherCampusAssignments||{};return ok('/api/school/teacher-campuses/'+teacherId,'super','PUT',{campus_id:campusId,expected_campus_id:current[teacherId]||null});};
  const date=businessNow().toISOString().slice(0,10),make=(kind,name,parent_id)=>ok('/api/school/structure','super','POST',{kind,name,parent_id},201);
- test(runtime+': diary notice is hidden until published, validated, permissioned and preserved',async()=>{
-  const empty=await ok('/api/school/notice','super');assert.equal(empty.notice.published,false);
-  assert.equal((await req('/api/school/notice','teacher','PUT',{text:'x',published:true})).status,403);
-  assert.equal((await req('/api/school/notice','super','PUT',{published:true})).status,400);
-  assert.equal((await req('/api/school/notice','super','PUT',{text:'x'.repeat(401)})).status,400);
-  await ok('/api/school/notice','super','PUT',{title:'Meeting',text:'Parent meeting on Saturday',language:'en',published:true});
-  const saved=(await ok('/api/school/notice','super')).notice;assert.equal(saved.published,true);assert.equal(saved.startDate,businessNow().toISOString().slice(0,10));
-  const s=await ok('/api/settings');assert.equal(s.diaryNotice,undefined);
-  await ok('/api/school/notice','super','PUT',{published:false});
-  assert.equal((await ok('/api/school/notice','super')).notice.published,false);
+ test(runtime+': diary notices are permissioned, validated, listed and never exposed in public settings',async()=>{
+  assert.deepEqual((await ok('/api/school/notices','super')).notices,[]);
+  assert.equal((await req('/api/school/notices','teacher','POST',{text:'x',published:true})).status,403);
+  assert.equal((await req('/api/school/notices','super','POST',{published:true})).status,400);
+  assert.equal((await req('/api/school/notices','super','POST',{text:'x'.repeat(401)})).status,400);
+  assert.equal((await req('/api/school/notices','super','POST',{text:'x',class_ids:['missing']})).status,400);
+  const made=await ok('/api/school/notices','super','POST',{title:'Meeting',text:'Parent meeting on Saturday',language:'en',published:true},201);
+  const saved=(await ok('/api/school/notices','super')).notices;assert.equal(saved.length,1);assert.equal(saved[0].published,true);assert.deepEqual(saved[0].class_ids,[]);assert.equal(saved[0].startDate,businessNow().toISOString().slice(0,10));
+  const s=await ok('/api/settings');assert.equal(s.diaryNotice,undefined);assert.equal(s.diaryNotices,undefined);
+  await ok('/api/school/notices/'+made.notice.id,'super','PUT',{published:false});
+  assert.equal((await ok('/api/school/notices','super')).notices[0].published,false);
+  await ok('/api/school/notices/'+made.notice.id,'super','DELETE');
+  assert.deepEqual((await ok('/api/school/notices','super')).notices,[]);
  });
  test(runtime+': branch/campus/class/section relationships and invalid parents are enforced',async()=>{
   assert.equal((await req('/api/school/structure','super','POST',{kind:'class',name:'No campus'})).status,400);branch=(await make('branch','Test Branch')).id;campus=(await make('campus','Test Campus',branch)).id;await setCampus(f.users.teacher.id,campus);await setCampus(f.users.teacherB.id,campus);klass=(await make('class','Test Platform Class',campus)).id;section=(await make('section','Blue',klass)).id;otherSection=(await make('section','Pink',klass)).id;english=(await make('subject','Platform English')).id;urdu=(await make('subject','Platform Urdu')).id;assert.equal((await req('/api/school/structure','teacher','POST',{kind:'branch',name:'Hacked'})).status,403);assert.equal((await req('/api/school/structure/'+campus,'super','PATCH',{active:false})).status,409);assert.equal((await req('/api/school/structure','super','POST',{kind:'section',name:'Bad',parent_id:campus})).status,400);assert.equal((await req('/api/school/structure','super','POST',{kind:'branch',name:'test branch'})).status,409);

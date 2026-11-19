@@ -36,7 +36,13 @@ import {
   roleRestrictions,
 } from './school-permissions.mjs';
 import { pushService } from './school-push.mjs';
-import { activeNotice, normalizeNotice, emptyNotice } from './diary-notice.mjs';
+import {
+  activeNotices,
+  checkCapacity,
+  normalizeNotice,
+  noticeList,
+  NOTICES_MAX,
+} from './diary-notice.mjs';
 export function schoolPlatform(db, domain, documents) {
   const teacherCampus = teacherCampusService(db, domain),
     managementAccess = managementScope(db, domain),
@@ -80,7 +86,7 @@ export function schoolPlatform(db, domain, documents) {
     check((await capabilities(u)).includes(cap), 'Permission required: ' + cap);
     if (['people.manage', 'hierarchy.manage', 'permissions.manage', 'audit.view'].includes(cap))
       check(wide(u), 'Administrative scope required');
-    if (['structure.manage', 'assignments.manage', 'parents.manage', 'quotes.manage'].includes(cap))
+    if (['structure.manage', 'assignments.manage', 'parents.manage', 'quotes.manage', 'notices.manage'].includes(cap))
       check(wide(u) || supervisor(u), 'Staff management scope required');
   }
   async function activeUser(uid, role) {
@@ -769,7 +775,7 @@ export function schoolPlatform(db, domain, documents) {
       status: combined?.status || first.status,
       review_remarks: '',
       quote_snapshot: quotes.slice(0, 1),
-      notice_snapshot: activeNotice(await schoolSettings(), first.diary_date),
+      notice_snapshot: activeNotices(await schoolSettings(), first.diary_date, m.class_id),
       template_snapshot: {
         ...school,
         assignmentSnapshot: {
@@ -1313,7 +1319,7 @@ export function schoolPlatform(db, domain, documents) {
         const retained = custom ? new Set() : retainedGrants(u);
         for (const cap of policy.caps) {
           if (!retained.has(cap)) await require(u, cap);
-          else if (['structure.manage', 'assignments.manage', 'quotes.manage'].includes(cap))
+          else if (['structure.manage', 'assignments.manage', 'quotes.manage', 'notices.manage'].includes(cap))
             check(wide(u) || supervisor(u), 'Staff management scope required');
           else if (cap === 'people.manage') check(wide(u), 'Administrative scope required');
         }
@@ -3076,33 +3082,59 @@ export function schoolPlatform(db, domain, documents) {
           true
         );
       }
-      if (path === '/api/school/notice' && method === 'GET') {
-        await require(u, 'quotes.manage');
-        const stored = (await schoolSettings()).diaryNotice;
-        return (reply(res, 200, { notice: { ...emptyNotice(), ...(stored || {}) } }), true);
-      }
-      if (path === '/api/school/notice' && method === 'PUT') {
-        await require(u, 'quotes.manage');
-        await transaction(async () => {
-          const row = await one('SELECT value FROM settings WHERE id=1'),
-            current = json(row.value),
-            notice = normalizeNotice(b, current.diaryNotice, {
-              actor: u.id,
-              today: dateInZone(),
-              validDate,
-              check,
-            });
-          await run(
-            'UPDATE settings SET value=? WHERE id=1',
-            JSON.stringify({ ...current, diaryNotice: notice }),
-          );
-          await audit(u, notice.published ? 'school_notice_published' : 'school_notice_saved', 'notice', {
-            published: notice.published,
-            startDate: notice.startDate,
-            endDate: notice.endDate,
+      const noticePath = /^\/api\/school\/notices(?:\/([\w-]+))?$/.exec(path);
+      if (noticePath) {
+        const noticeId = noticePath[1],
+          cap = { GET: 'view', POST: 'create', PUT: 'edit', DELETE: 'delete' }[method];
+        if (cap && (noticeId ? method !== 'POST' && method !== 'GET' : method === 'GET' || method === 'POST')) {
+          await require(u, 'notices.' + cap);
+          if (method === 'GET')
+            return (reply(res, 200, { notices: noticeList(await schoolSettings()) }), true);
+          const saved = await transaction(async () => {
+            const current = json((await one('SELECT value FROM settings WHERE id=1')).value),
+              list = noticeList(current),
+              old = noticeId ? list.find((n) => n.id === noticeId) : undefined;
+            check(noticeId ? old : list.length < NOTICES_MAX, noticeId ? 'Notice not found' : 'Too many notices. Delete old ones first.', noticeId ? 404 : 409);
+            let next = list.filter((n) => n.id !== noticeId),
+              notice = null;
+            if (method !== 'DELETE') {
+              const classes = (
+                await all("SELECT id FROM academics WHERE kind='class' AND active=1")
+              ).map((x) => x.id);
+              notice = normalizeNotice(b, old ? { ...old } : { id: id() }, {
+                actor: u.id,
+                today: dateInZone(),
+                validDate,
+                check,
+                activeClassIds: classes,
+              });
+              checkCapacity(notice, next, notice.class_ids.length ? notice.class_ids : classes, check);
+              next = [...next, notice];
+            }
+            const { diaryNotice: _legacy, ...rest } = current;
+            await run(
+              'UPDATE settings SET value=? WHERE id=1',
+              JSON.stringify({ ...rest, diaryNotices: next }),
+            );
+            await audit(
+              u,
+              method === 'DELETE'
+                ? 'school_notice_deleted'
+                : notice.published
+                  ? 'school_notice_published'
+                  : 'school_notice_saved',
+              'notice:' + (noticeId || notice.id),
+              notice && {
+                published: notice.published,
+                class_ids: notice.class_ids,
+                startDate: notice.startDate,
+                endDate: notice.endDate,
+              },
+            );
+            return notice;
           });
-        });
-        return (reply(res, 200, { ok: true }), true);
+          return (reply(res, method === 'POST' ? 201 : 200, { ok: true, notice: saved }), true);
+        }
       }
       if (path === '/api/school/quotes' && method === 'GET') {
         await require(u, 'quotes.manage');

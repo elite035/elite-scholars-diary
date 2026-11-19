@@ -1,4 +1,4 @@
-export const crudModules = ['structure', 'people', 'assignments', 'quotes'];
+export const crudModules = ['structure', 'people', 'assignments', 'quotes', 'notices'];
 export const crudActions = ['view', 'create', 'edit', 'delete'];
 export const capabilityNames = [
   ...crudModules.flatMap((m) => crudActions.map((a) => m + '.' + a)),
@@ -19,6 +19,7 @@ export const capabilityNames = [
   'diary.amend',
   'diary.export',
   'quotes.manage',
+  'notices.manage',
   'reports.view',
   'audit.view',
   'notifications.manage',
@@ -90,9 +91,9 @@ export const roleRestrictions = Object.fromEntries(
             'records.force_delete',
           ].includes(cap) || cap.startsWith('people.');
         const staff =
-          ['structure.manage', 'assignments.manage', 'parents.manage', 'quotes.manage'].includes(
+          ['structure.manage', 'assignments.manage', 'parents.manage', 'quotes.manage', 'notices.manage'].includes(
             cap,
-          ) || ['structure.', 'assignments.', 'quotes.'].some((prefix) => cap.startsWith(prefix));
+          ) || ['structure.', 'assignments.', 'quotes.', 'notices.'].some((prefix) => cap.startsWith(prefix));
         const reason =
           admin && !['super_admin', 'school_admin'].includes(role)
             ? 'Requires an administrator account.'
