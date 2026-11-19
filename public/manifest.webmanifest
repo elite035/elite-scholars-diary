@@ -1,0 +1,15 @@
+{
+  "id": "/",
+  "name": "Elite Scholars School Diary",
+  "short_name": "School Diary",
+  "description": "Elite Scholars school diaries, review and approved homework.",
+  "start_url": "/#/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f3ed",
+  "theme_color": "#4f2526",
+  "icons": [
+    {"src":"/assets/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"/assets/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"}
+  ]
+}

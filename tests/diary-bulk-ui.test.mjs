@@ -1,0 +1,22 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {parseHTML} from 'linkedom';import {diaryBulkToolbar,mountDiaryBulk} from '../public/diary-bulk.js';
+function setup({mode='submissions',confirm=()=>true,comment='Please correct this',api}={}){
+ const {document,window}=parseHTML('<main></main>'),root=document.querySelector('main'),caps=['diary.approve','diary.return','diary.review','diary.edit','diary.submit','diary.delete','diary.amend','diary.export'],records=[1,2,3].map(n=>({id:'d'+n,version:n,status:'submitted',diary_date:'2026-11-05',snapshot:{teacher_name:'Teacher '+n}}));
+ root.innerHTML=diaryBulkToolbar({mode,caps,role:'head_teacher'})+records.map(r=>`<input type="checkbox" data-bulk-id="${r.id}">`).join('');const calls=[],exports=[];let refreshes=0;
+ const control=mountDiaryBulk(root,{records,mode,api:api||(async(path,options)=>{calls.push({path,options});return {results:options.body.items.map((r,i)=>i===1?{id:r.id,ok:false,error:'Diary changed; reload'}:{id:r.id,ok:true,status:'approved',version:r.version+1})};}),confirm,requestComment:async()=>comment,exportSelected:async(...args)=>exports.push(args),refresh:()=>refreshes++});
+ const emit=(node,type)=>node.dispatchEvent(new window.Event(type,{bubbles:true}));return {root,window,records,calls,exports,control,emit,refreshes:()=>refreshes,tick:()=>new Promise(r=>setTimeout(r,0))};
+}
+test('select all, individual selection and parent indeterminate/count reflect only visible page records',()=>{
+ const h=setup(),all=h.root.querySelector('[data-bulk-all]'),boxes=[...h.root.querySelectorAll('[data-bulk-id]')];assert.equal(h.root.querySelector('[data-bulk-action=approved]').disabled,true);boxes[0].checked=true;h.emit(boxes[0],'change');assert.equal(all.indeterminate,true);assert.match(h.root.querySelector('[data-bulk-count]').textContent,/1 selected/);all.checked=true;h.emit(all,'change');assert.equal(h.control.selected().length,3);assert.equal(all.indeterminate,false);all.checked=false;h.emit(all,'change');assert.equal(h.control.selected().length,0);
+});
+test('bulk actions confirm once, prevent repeated clicks, update versions and keep failed items selected with plain-text errors',async()=>{
+ const h=setup(),all=h.root.querySelector('[data-bulk-all]');all.checked=true;h.emit(all,'change');const button=h.root.querySelector('[data-bulk-action=approved]');h.emit(button,'click');h.emit(button,'click');await h.tick();assert.equal(h.calls.length,1);assert.deepEqual(h.calls[0].options.body.items,[{id:'d1',version:1},{id:'d2',version:2},{id:'d3',version:3}]);assert.equal(h.records[0].version,2);assert.equal(h.records[2].version,4);assert.deepEqual(h.control.selected().map(x=>x.id),['d2']);assert.match(h.root.querySelector('[data-bulk-feedback]').textContent,/2 updated; 1 not updated/);assert.match(h.root.querySelector('[data-bulk-feedback]').textContent,/Diary changed/);assert.equal(button.disabled,false);
+});
+test('cancelled confirmations/comments cause no API writes and release controls',async()=>{
+ for(const options of [{confirm:()=>false},{comment:null}]){const h=setup(options),all=h.root.querySelector('[data-bulk-all]');all.checked=true;h.emit(all,'change');h.emit(h.root.querySelector('[data-bulk-action=returned]'),'click');await h.tick();assert.equal(h.calls.length,0);assert.equal(all.disabled,false);assert.equal(h.control.selected().length,3);}
+});
+test('approved consolidated groups provide only selected exports, not review/deletion actions',async()=>{
+ const h=setup({mode:'consolidated'});assert.equal(h.root.querySelector('[data-bulk-action]'),null);const all=h.root.querySelector('[data-bulk-all]');all.checked=true;h.emit(all,'change');h.emit(h.root.querySelector('[data-bulk-export=png]'),'click');await h.tick();assert.deepEqual(h.exports[0],[['d1','d2','d3'],'png','consolidated']);assert.equal(h.calls.length,0);
+});
+test('server failures never trigger automatic retries and results tell users to reload',async()=>{
+ let calls=0;const h=setup({api:async()=>{calls++;throw Error('Connection interrupted');}}),all=h.root.querySelector('[data-bulk-all]');all.checked=true;h.emit(all,'change');h.emit(h.root.querySelector('[data-bulk-action=approved]'),'click');await h.tick();assert.equal(calls,1);assert.match(h.root.querySelector('[data-bulk-feedback]').textContent,/Reload before retrying/);assert.equal(all.disabled,false);h.emit(h.root.querySelector('[data-bulk-refresh]'),'click');assert.equal(h.refreshes(),1);
+});

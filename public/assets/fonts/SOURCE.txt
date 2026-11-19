@@ -1,0 +1,3 @@
+Noto Naskh Arabic, unmodified upstream font.
+Source: https://github.com/google/fonts/tree/ad2e6647e3d97ad5a8b6b5f95042f99161af5915/ofl/notonaskharabic
+License: SIL Open Font License 1.1; see OFL.txt.

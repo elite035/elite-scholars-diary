@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {businessNow} from '../shared/clock.mjs';
+test('business dates can be fixed independently of real authentication time',()=>{const original=process.env.TEST_REFERENCE_DATE;process.env.TEST_REFERENCE_DATE='2099-01-05T12:00:00Z';assert.equal(businessNow().getUTCFullYear(),2099);assert.ok(new Date().getUTCFullYear()<2099);if(original===undefined)delete process.env.TEST_REFERENCE_DATE;else process.env.TEST_REFERENCE_DATE=original;});

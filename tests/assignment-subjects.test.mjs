@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {parseHTML} from 'linkedom';
+import {assignmentChoices,mountAssignmentSubjects} from '../public/assignment-subjects.js';
+const catalog={teacherCampuses:[{teacher_id:'boysTeacher',campus_id:'campus'},{teacher_id:'girlsTeacher',campus_id:'girls'}],nodes:[{id:'campus',kind:'campus',name:'Boys',active:1},{id:'girls',kind:'campus',name:'Girls',active:1},{id:'oldcampus',kind:'campus',name:'Old campus',active:0}],classCampuses:[{class_id:'four',campus_id:'campus'},{class_id:'five',campus_id:'girls'},{class_id:'oldclass',campus_id:'oldcampus'}],academics:[{id:'four',kind:'class',name:'Four',active:1},{id:'five',kind:'class',name:'Five',active:1},{id:'oldclass',kind:'class',name:'Old class',active:1},{id:'blue',kind:'section',name:'Blue',parent_id:'four',active:1},{id:'pink',kind:'section',name:'Pink',parent_id:'four',active:1},{id:'green',kind:'section',name:'Green',parent_id:'five',active:1},{id:'oldsection',kind:'section',name:'Old section',parent_id:'oldclass',active:1},{id:'archived',kind:'section',name:'Archived',parent_id:'four',active:0},{id:'english',kind:'subject',name:'English',active:1},{id:'math',kind:'subject',name:'Math',active:1},{id:'unassigned',kind:'subject',name:'Unassigned school subject',active:1},{id:'oldsubject',kind:'subject',name:'Old subject',active:0}],sectionSubjects:[{section_id:'blue',subject_id:'english'},{section_id:'pink',subject_id:'math'},{section_id:'green',subject_id:'math'},{section_id:'blue',subject_id:'oldsubject'},{section_id:'archived',subject_id:'english'},{section_id:'oldsection',subject_id:'english'}]};
+const checks=(name,items,selected=[])=>items.map(x=>`<label><input name="${name}" type="checkbox" value="${x.id}" ${selected.includes(x.id)?'checked':''}>${x.name}</label>`).join('');
+test('assignment options use only saved active class/section subject relationships',()=>{
+ const choices=assignmentChoices(catalog);assert.deepEqual(choices.classes.map(x=>x.id),['four','five']);assert.deepEqual(choices.pairs.map(x=>x.id),['blue:english','pink:math','green:math']);assert.ok(choices.pairs[0].name.includes('Boys · Four / Blue — English'));
+});
+test('teacher changes restrict class choices to the saved campus and clear previous classes and subject selections',()=>{
+ const {document,window}=parseHTML('<form><select name=teacher_id><option value=boysTeacher selected>Boys teacher</option><option value=girlsTeacher>Girls teacher</option><option value=unassigned>Unassigned teacher</option></select><div data-assignment-classes></div><div data-assignment-subjects></div></form>'),form=document.querySelector('form'),picker=mountAssignmentSubjects(form,catalog,{checks});
+ const change=(selector,checked)=>{const input=form.querySelector(selector);input.checked=checked;input.dispatchEvent(new window.Event('change',{bubbles:true}));};
+ const pairIds=()=>[...form.querySelectorAll('[name=pairs]')].map(x=>x.value);
+ assert.deepEqual(pairIds(),[]);assert.match(form.textContent,/Select one or more classes/);
+ change('[value=four]',true);assert.deepEqual(pairIds(),['blue:english','pink:math']);change('[value="blue:english"]',true);
+ assert.equal(form.querySelector('[value=five]'),null);assert.ok(form.querySelector('[value="blue:english"]').checked);
+ const teacher=form.querySelector('[name=teacher_id]');Object.defineProperty(teacher,'value',{configurable:true,writable:true,value:'girlsTeacher'});teacher.dispatchEvent(new window.Event('change',{bubbles:true}));assert.deepEqual(pairIds(),[]);assert.equal(form.querySelector('[value=four]'),null);change('[value=five]',true);assert.deepEqual(pairIds(),['green:math']);change('[value="green:math"]',true);
+ assert.deepEqual(picker.pairs(),[{section_id:'green',subject_id:'math'}]);
+ teacher.value='unassigned';teacher.dispatchEvent(new window.Event('change',{bubbles:true}));assert.deepEqual(picker.pairs(),[]);assert.equal(form.querySelectorAll('[name=assignment_classes]').length,0);assert.match(form.textContent,/no campus assignment/);
+});

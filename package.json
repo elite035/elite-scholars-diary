@@ -1,0 +1,32 @@
+{
+  "name": "elite-scholars-standalone",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server/index.mjs",
+    "dev": "node --env-file-if-exists=.env --watch server/index.mjs",
+    "test": "node scripts/test.mjs",
+    "check": "node scripts/check.mjs",
+    "bootstrap": "node --env-file-if-exists=.env scripts/bootstrap.mjs",
+    "backup": "node --env-file-if-exists=.env scripts/backup.mjs",
+    "build": "node scripts/build.mjs",
+    "bootstrap:cloud": "node --env-file-if-exists=.env.cloud scripts/bootstrap-cloud.mjs"
+  },
+  "dependencies": {
+    "esbuild": "^0.25.12",
+    "fflate": "^0.8.3",
+    "html-to-image": "^1.11.13",
+    "jspdf": "^4.2.1",
+    "playwright": "^1.62.1",
+    "postgres": "^3.4.9",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
+    "linkedom": "^0.18.12"
+  }
+}
