@@ -1,10 +1,11 @@
+import { passwordAcceptable } from '../shared/passwords.mjs';
 import { createUser, one, db } from '../server/db.mjs';
 const email = process.env.ADMIN_EMAIL,
   name = process.env.ADMIN_NAME,
   password = process.env.ADMIN_PASSWORD;
-if (!email || !name || !password || password.length < 12) {
+if (!email || !name || !password || !passwordAcceptable(password)) {
   console.error(
-    'Set ADMIN_EMAIL, ADMIN_NAME and ADMIN_PASSWORD (12+ characters) in the environment. Never place credentials in source control.',
+    'Set ADMIN_EMAIL, ADMIN_NAME and ADMIN_PASSWORD (6 or more characters) in the environment. Never place credentials in source control.',
   );
   process.exit(1);
 }

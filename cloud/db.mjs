@@ -1,4 +1,5 @@
 import { passwordHashAsync } from '../shared/passwords.mjs';
+import { timedQuery } from '../shared/telemetry.mjs';
 export { passwordHashAsync, passwordValidAsync } from '../shared/passwords.mjs';
 import postgres from 'postgres';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -114,9 +115,11 @@ function sqlText(input, bindings) {
   return sql;
 }
 export async function all(sql, ...args) {
-  const rows = pgTest
-    ? (await pgTest.query(sqlText(sql, args.length), args)).rows
-    : await (transactions.getStore() || connect()).unsafe(sqlText(sql, args.length), args);
+  const rows = await timedQuery(sql, async () =>
+    pgTest
+      ? (await pgTest.query(sqlText(sql, args.length), args)).rows
+      : await (transactions.getStore() || connect()).unsafe(sqlText(sql, args.length), args),
+  );
   return rows.map((row) => ({
     ...row,
     ...(typeof row.n === 'string' ? { n: Number(row.n) } : {}),
@@ -126,12 +129,17 @@ export async function one(sql, ...args) {
   return (await all(sql, ...args))[0];
 }
 export async function run(sql, ...args) {
-  if (pgTest) {
-    const result = await pgTest.query(sqlText(sql, args.length), args);
-    return { changes: result.affectedRows };
-  }
-  const rows = await (transactions.getStore() || connect()).unsafe(sqlText(sql, args.length), args);
-  return { changes: rows.count };
+  return timedQuery(sql, async () => {
+    if (pgTest) {
+      const result = await pgTest.query(sqlText(sql, args.length), args);
+      return { changes: result.affectedRows };
+    }
+    const rows = await (transactions.getStore() || connect()).unsafe(
+      sqlText(sql, args.length),
+      args,
+    );
+    return { changes: rows.count };
+  });
 }
 export async function transaction(fn) {
   if (transactions.getStore()) return fn();

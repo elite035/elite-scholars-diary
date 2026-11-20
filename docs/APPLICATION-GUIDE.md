@@ -47,7 +47,7 @@ Keep `.env.cloud`, `.env.provision-state.json`, Vercel credentials and backup ke
 
 For a fresh database, apply `cloud/schema.sql`, `cloud/enhancements-schema.sql`, then `cloud/school-schema.sql` with an authorized migration/operator connection; grant the dedicated application role using the documented migration policies. Do not grant browser `anon`/`authenticated` roles access to the private schema. Bootstrap the first Super Admin only once with `npm run bootstrap:cloud`.
 
-Existing databases are upgraded by running `database/upgrade.sql` once; the same change is in `supabase/migrations/`. It is additive and never resets data.
+Existing databases are upgraded by the versioned files in `database/migrations/` (`npm run migrate`). Each is applied once, is additive, and never resets data. Slow requests and queries are logged as JSON lines (`slow_request`, `slow_query`); tune with `SLOW_REQUEST_MS` and `SLOW_QUERY_MS`.
 
 Set production environment variables through Vercel, link the intended team/project, run the checks/build and deploy with `vercel deploy --prod`. New environment variables require a new deployment. The production domain must equal `PUBLIC_ORIGIN` for write-origin checks.
 

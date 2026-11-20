@@ -18,8 +18,7 @@ import {
   subjectAssignments,
 } from './subject-form.js';
 import { validateClassSections } from './class-sections.js';
-import { structureWorkspace } from './school-structure.js';
-import { permissionsWorkspace } from './school-permissions.js';
+import { lazyWorkspace } from './lazy.js';
 export function schoolUI({
   api,
   state,
@@ -118,7 +117,7 @@ export function schoolUI({
     state.schoolConfig = b.structure;
     return b.structure;
   }
-  const workspace = structureWorkspace({
+  const workspace = lazyWorkspace(() => import('./school-structure.js').then((m) => m.structureWorkspace), {
     api,
     state,
     esc,
@@ -256,6 +255,7 @@ export function schoolUI({
   }
   async function structure(q) {
     if (!q.kind || q.kind === 'setup') return workspace.page(q);
+    await workspace.ensure();
     const s = state.schoolConfig,
       kind = q.kind === 'section' ? 'class' : q.kind || 'branch',
       types = {
@@ -1534,7 +1534,10 @@ export function schoolUI({
         ? notices.map(item).join('')
         : empty('No notices yet', 'Choose “Add notice”, then publish it when you want it to appear.'));
   }
-  const permissionsUI = permissionsWorkspace({ api, state, esc, heading, toast, render, roles });
+  const permissionsUI = lazyWorkspace(
+    () => import('./school-permissions.js').then((m) => m.permissionsWorkspace),
+    { api, state, esc, heading, toast, render, roles },
+  );
   const permissions = () => permissionsUI.page();
   function reportFilters(q, s) {
     return `<form class="cardbody filters" id="school-report-filter">${field('From', 'start', 'date', q.start || today(), 'required')}${field('To', 'end', 'date', q.end || today(), 'required')}${select(

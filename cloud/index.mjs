@@ -4,6 +4,7 @@ import {
   passwordAcceptable,
   PASSWORD_MESSAGE,
 } from '../shared/passwords.mjs';
+import { watchRequest } from '../shared/telemetry.mjs';
 import { clientSettings } from '../shared/client-settings.mjs';
 import { runBackupJob } from '../shared/backup-job.mjs';
 import { assertSettingsVersion, preserveSettingsLinks } from '../shared/settings-publication.mjs';
@@ -1193,6 +1194,7 @@ async function firstRunSetup(req, res) {
 }
 
 export async function handler(req, res) {
+  watchRequest(req, res);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');

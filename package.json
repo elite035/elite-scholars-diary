@@ -13,8 +13,10 @@
     "check": "node scripts/check.mjs",
     "bootstrap": "node --env-file-if-exists=.env scripts/bootstrap.mjs",
     "backup": "node --env-file-if-exists=.env scripts/backup.mjs",
-    "build": "node scripts/build.mjs",
-    "bootstrap:cloud": "node --env-file-if-exists=.env.cloud scripts/bootstrap-cloud.mjs"
+    "build": "node scripts/build.mjs && node scripts/migrate.mjs",
+    "bootstrap:cloud": "node --env-file-if-exists=.env.cloud scripts/bootstrap-cloud.mjs",
+    "migrate": "node --env-file-if-exists=.env.cloud scripts/migrate.mjs",
+    "format": "npx --yes prettier@3.9.10 --write 'server/*.mjs' 'cloud/*.mjs' 'shared/*.mjs' 'public/*.js' 'client/*.mjs' 'api/*.mjs' 'scripts/*.mjs' 'tests/*.mjs' public/style.css"
   },
   "dependencies": {
     "esbuild": "^0.25.12",

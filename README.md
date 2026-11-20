@@ -45,7 +45,7 @@ In Vercel choose **Add New → Project → Import Git Repository**, pick the rep
 4. iPhone and iPad need the app added to the Home Screen first (Share → Add to Home Screen), iOS 16.4 or later.
 
 ## Upgrading an existing database
-If your Supabase database was already set up with an earlier version, do **not** re-run `setup.sql`. Run only `database/upgrade.sql` once (SQL Editor). It adds the table for photos/PDFs in Communication and the column that lets a Super Admin see a user's temporary password, and is safe to run twice. Until it is run, text chat and calls work and only photo/PDF sending fails.
+If your Supabase database was already set up with an earlier version, do **not** re-run `setup.sql`. Database changes are versioned in `database/migrations/` and applied once each by `npm run migrate` (it also runs during `npm run build` on Vercel). Set `MIGRATION_DATABASE_URL` to the database owner's connection string, in Vercel (Build) or in `.env.cloud`; without it, migrations are skipped. Until a migration is applied, features that need it (photos/PDFs in Communication, the Super Admin's temporary-password view) fail while everything else works.
 
 ## Communication
 Chats show people's names, support photos and PDFs (up to 2 MB; photos are shrunk automatically) and a **call** button. A call posts a "Join call" card in the chat that opens a private Jitsi Meet room (meet.jit.si) in a new tab; no extra server or key is needed.

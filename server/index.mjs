@@ -4,6 +4,8 @@ import {
   passwordAcceptable,
   PASSWORD_MESSAGE,
 } from '../shared/passwords.mjs';
+import { watchRequest } from '../shared/telemetry.mjs';
+import { createStaticCache } from '../shared/static-cache.mjs';
 import { withDatabaseContext } from './db.mjs';
 import { clientSettings } from '../shared/client-settings.mjs';
 import { assertSettingsVersion, preserveSettingsLinks } from '../shared/settings-publication.mjs';
@@ -70,6 +72,7 @@ import {
   closeRenderer,
 } from './documents.mjs';
 const publicDir = new URL('../public/', import.meta.url);
+const loadStatic = createStaticCache(publicDir);
 mkdirSync(join(dataDir, 'files'), { recursive: true, mode: 0o700 });
 const limits = new Map();
 const sessionsHours = Math.max(1, Math.min(24, Number(process.env.SESSION_HOURS) || 8));
@@ -1111,6 +1114,7 @@ async function exportResponse(res, u, diaries, format, forceBrowser = false) {
   }
 }
 export const server = http.createServer(async (req, res) => {
+  watchRequest(req, res);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
@@ -1147,6 +1151,7 @@ export const server = http.createServer(async (req, res) => {
                 '/historical-display.js',
                 '/api-client.js',
                 '/staff-form.js',
+                '/lazy.js',
                 '/assignment-subjects.js',
                 '/diary-actions.js',
                 '/document-filename.js',
@@ -1166,8 +1171,15 @@ export const server = http.createServer(async (req, res) => {
               ].includes(url.pathname)
             ? url.pathname.slice(1)
             : 'index.html');
-    const content = readFileSync(new URL(file, publicDir));
+    const { body, encoding, etag } = loadStatic(file, req.headers['accept-encoding']);
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, { ETag: etag, Vary: 'Accept-Encoding' });
+      return res.end();
+    }
     res.writeHead(200, {
+      ETag: etag,
+      Vary: 'Accept-Encoding',
+      ...(encoding && { 'Content-Encoding': encoding }),
       'Content-Type': file.endsWith('.js')
         ? 'text/javascript'
         : file.endsWith('.css')
@@ -1181,11 +1193,12 @@ export const server = http.createServer(async (req, res) => {
                 : file.endsWith('.webmanifest')
                   ? 'application/manifest+json'
                   : 'text/html; charset=utf-8',
-      'Cache-Control': 'no-cache',
+      // Pages and scripts revalidate (cheap 304); images and fonts rarely change.
+      'Cache-Control': file.startsWith('assets/') ? 'public, max-age=86400' : 'no-cache',
       'Content-Security-Policy':
         "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'",
     });
-    res.end(content);
+    res.end(body);
   } catch (e) {
     if (res.headersSent) {
       res.end();

@@ -1,8 +1,9 @@
+import { passwordAcceptable } from '../shared/passwords.mjs';
 import { createUser, one, db, transaction } from '../cloud/db.mjs';
 const { ADMIN_EMAIL: email, ADMIN_NAME: name, ADMIN_PASSWORD: password } = process.env;
-if (!email || !name || !password || password.length < 12) {
+if (!email || !name || !password || !passwordAcceptable(password)) {
   console.error(
-    'Set ADMIN_EMAIL, ADMIN_NAME and ADMIN_PASSWORD (12+ characters) in a private environment file.',
+    'Set ADMIN_EMAIL, ADMIN_NAME and ADMIN_PASSWORD (6 or more characters) in a private environment file.',
   );
   process.exitCode = 1;
 } else
