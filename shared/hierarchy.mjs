@@ -1,3 +1,4 @@
+import { USER_COLUMNS } from './user-columns.mjs';
 import { createHash } from 'node:crypto';
 import { permissionService } from './school-permissions.mjs';
 import { teacherCampusService, STAFF_ROLES } from './teacher-campus.mjs';
@@ -71,7 +72,7 @@ export function hierarchyService(db, domain) {
   }
   async function user(uid, role) {
     check(typeof uid === 'string', 'Choose a valid staff account', 400);
-    const row = await one('SELECT * FROM users WHERE id=? AND role=? AND active=1', uid, role);
+    const row = await one(`SELECT ${USER_COLUMNS} FROM users WHERE id=? AND role=? AND active=1`, uid, role);
     check(row, 'Choose an active ' + role.replaceAll('_', ' '), 400);
     return row;
   }

@@ -1,3 +1,4 @@
+import { USER_COLUMNS } from '../shared/user-columns.mjs';
 import { passwordHashAsync } from '../shared/passwords.mjs';
 export { passwordHashAsync, passwordValidAsync } from '../shared/passwords.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -199,7 +200,7 @@ export function createUser({ name, email, password, role = 'teacher', permission
     t,
   );
   run('INSERT OR IGNORE INTO user_handles VALUES(?,?,?)', uid, 'u_' + uid.replaceAll('-', ''), t);
-  return one('SELECT * FROM users WHERE id=?', uid);
+  return one(`SELECT ${USER_COLUMNS} FROM users WHERE id=?`, uid);
 }
 
 // List/report reads exclude repeated school branding; detail/export reads keep original snapshots.
@@ -236,6 +237,6 @@ export async function createUserAsync({
       'u_' + uid.replaceAll('-', ''),
       stamp,
     );
-    return one('SELECT * FROM users WHERE id=?', uid);
+    return one(`SELECT ${USER_COLUMNS} FROM users WHERE id=?`, uid);
   });
 }

@@ -1,3 +1,4 @@
+import { USER_COLUMNS } from './user-columns.mjs';
 import { passwordAcceptable, PASSWORD_MESSAGE } from './passwords.mjs';
 import { accountSecurity } from './account-security.mjs';
 // Shared management routes keep SQLite and PostgreSQL validation identical.
@@ -103,7 +104,7 @@ export function management(db, domain) {
     if (user && ['PATCH', 'DELETE'].includes(method)) {
       check(can(u, 'manage_users'), 'User management permission required');
       await transaction(async () => {
-        const target = await one('SELECT * FROM users WHERE id=?', user[1]);
+        const target = await one(`SELECT ${USER_COLUMNS} FROM users WHERE id=?`, user[1]);
         check(target, 'User not found', 404);
         check(
           u.role === 'super_admin' || ['teacher', 'head_teacher'].includes(target.role),

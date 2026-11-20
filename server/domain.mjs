@@ -1,3 +1,4 @@
+import { USER_COLUMNS } from '../shared/user-columns.mjs';
 import { businessNow } from '../shared/clock.mjs';
 import { assignedHomework } from '../shared/diary-rules.mjs';
 import { normalizeHomework } from '../shared/homework-template.mjs';
@@ -512,7 +513,7 @@ export function amendDiary(u, did, input) {
   });
 }
 export function sendDeadlineNotifications(clock = new Date()) {
-  const admin = one("SELECT * FROM users WHERE role='super_admin' AND active=1 LIMIT 1");
+  const admin = one(`SELECT ${USER_COLUMNS} FROM users WHERE role='super_admin' AND active=1 LIMIT 1`);
   if (!admin) return;
   const today = dateInZone(clock),
     modern = new Set(

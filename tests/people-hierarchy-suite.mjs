@@ -101,4 +101,17 @@ export async function suite(runtime) {
     assert.equal(after_.temporary_password, null);
     assert.equal(after_.must_change_password, false);
   });
+
+  test(runtime + ': no response ever carries a password hash', async () => {
+    const created = await create('Leak Check', 'teacher', campusA);
+    await login('leak', created.email, 'abc123');
+    for (const user of ['super', 'admin', 'leak'])
+      for (const path of ['/api/me', '/api/school/people', '/api/school/bootstrap', '/api/school/hierarchy']) {
+        const r = await req(path, user);
+        if (r.status !== 200) continue;
+        const text = JSON.stringify(r.data);
+        assert.ok(!/[a-f0-9]{32}:[a-f0-9]{128}/.test(text), user + ' ' + path + ' exposes a password hash');
+        assert.ok(!/"password"/.test(text), user + ' ' + path + ' exposes a password field');
+      }
+  });
 }

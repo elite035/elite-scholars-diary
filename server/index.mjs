@@ -1,3 +1,4 @@
+import { USER_COLUMNS, USER_COLUMNS_WITH_HASH } from '../shared/user-columns.mjs';
 import {
   passwordHashAsync,
   passwordValidAsync,
@@ -93,7 +94,7 @@ function userFor(req) {
   if (!token) return null;
   const s = one('SELECT * FROM sessions WHERE token_hash=? AND expires_at>?', hash(token), now());
   if (!s) return null;
-  const u = one('SELECT * FROM users WHERE id=? AND active=1', s.user_id);
+  const u = one(`SELECT ${USER_COLUMNS} FROM users WHERE id=? AND active=1`, s.user_id);
   return u
     ? {
         ...u,
@@ -150,11 +151,11 @@ const allowedPerms = [
 function visibleUsers(u) {
   if (u.role === 'teacher') return [publicUser(u)];
   if (can(u, 'manage_users') || can(u, 'read_all'))
-    return all('SELECT * FROM users').map(publicUser);
+    return all(`SELECT ${USER_COLUMNS} FROM users`).map(publicUser);
   const as = visibleAssignments(u),
     ids = new Set([u.id, ...as.flatMap((a) => [a.teacher_id, a.head_id])]);
   if (u.role === 'teacher') return [publicUser(u)];
-  return all('SELECT * FROM users')
+  return all(`SELECT ${USER_COLUMNS} FROM users`)
     .filter((x) => ids.has(x.id))
     .map(publicUser);
 }
@@ -186,8 +187,8 @@ function validateAssignment(u, b) {
     'Subject must be linked to this class in Academic Setup',
     400,
   );
-  const t = one('SELECT * FROM users WHERE id=? AND active=1', b.teacher_id),
-    h = one('SELECT * FROM users WHERE id=? AND active=1', b.head_id);
+  const t = one(`SELECT ${USER_COLUMNS} FROM users WHERE id=? AND active=1`, b.teacher_id),
+    h = one(`SELECT ${USER_COLUMNS} FROM users WHERE id=? AND active=1`, b.head_id);
   check(t && h && h.role === 'head_teacher', 'Active teacher and Head Teacher required', 400);
   check(t.id !== h.id, 'Assign a separate reviewer', 400);
   for (const [key, kind] of [
@@ -311,7 +312,7 @@ async function api(req, res, url) {
         429,
       );
     }
-    u = one('SELECT * FROM users WHERE email=? COLLATE NOCASE', b.email.trim());
+    u = one(`SELECT ${USER_COLUMNS_WITH_HASH} FROM users WHERE email=? COLLATE NOCASE`, b.email.trim());
     const fallback = 'a'.repeat(32) + ':' + '0'.repeat(128);
     const valid = await passwordValidAsync(b.password, u?.password || fallback);
     if (!u?.active || !valid) {
@@ -394,7 +395,10 @@ async function api(req, res, url) {
       );
       if (b.newPassword) {
         check(
-          await passwordValidAsync(String(b.currentPassword || ''), u.password),
+          await passwordValidAsync(
+            String(b.currentPassword || ''),
+            (one('SELECT password FROM users WHERE id=?', u.id))?.password || '',
+          ),
           'Current password is incorrect',
           400,
         );

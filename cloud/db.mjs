@@ -1,3 +1,4 @@
+import { USER_COLUMNS } from '../shared/user-columns.mjs';
 import { passwordHashAsync } from '../shared/passwords.mjs';
 import { timedQuery } from '../shared/telemetry.mjs';
 export { passwordHashAsync, passwordValidAsync } from '../shared/passwords.mjs';
@@ -233,7 +234,7 @@ export async function createUser({ name, email, password, role = 'teacher', perm
     'u_' + uid.replaceAll('-', ''),
     t,
   );
-  return one('SELECT * FROM users WHERE id=?', uid);
+  return one(`SELECT ${USER_COLUMNS} FROM users WHERE id=?`, uid);
 }
 
 // List/report reads exclude repeated school branding; detail/export reads keep original snapshots.

@@ -184,7 +184,10 @@ export function accountSecurity(db, domain) {
     check(
       typeof value === 'string' &&
         value.length <= 128 &&
-        (await (db.passwordValidAsync || db.passwordValid)(value, user.password)),
+        (await (db.passwordValidAsync || db.passwordValid)(
+          value,
+          (await db.one('SELECT password FROM users WHERE id=?', user.id))?.password || '',
+        )),
       'Current password is incorrect.',
       400,
     );

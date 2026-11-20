@@ -1,3 +1,4 @@
+import { USER_COLUMNS } from './user-columns.mjs';
 import { passwordAcceptable, PASSWORD_MESSAGE } from './passwords.mjs';
 import { diaryMonitoring } from './diary-monitoring.mjs';
 import { captureSchool, hydrateSchool } from './branding.mjs';
@@ -91,7 +92,7 @@ export function schoolPlatform(db, domain, documents) {
   }
   async function activeUser(uid, role) {
     check(typeof uid === 'string' && uid.length > 0, 'Choose an account', 400);
-    const x = await one('SELECT * FROM users WHERE id=? AND active=1', uid);
+    const x = await one(`SELECT ${USER_COLUMNS} FROM users WHERE id=? AND active=1`, uid);
     check(x && (!role || x.role === role), 'Active ' + (role || 'account') + ' required', 400);
     return x;
   }
@@ -246,7 +247,7 @@ export function schoolPlatform(db, domain, documents) {
                 )
               : []),
           ]
-        : (await all('SELECT * FROM users ORDER BY name'))
+        : (await all(`SELECT ${USER_COLUMNS} FROM users ORDER BY name`))
             .filter(
               (x) =>
                 wide(u) ||
@@ -274,7 +275,7 @@ export function schoolPlatform(db, domain, documents) {
   }
   async function peopleDirectory(u) {
     // One query at a time: the serverless database pool is small and shared by concurrent requests.
-    const users = await all('SELECT * FROM users ORDER BY name'),
+    const users = await all(`SELECT ${USER_COLUMNS} FROM users ORDER BY name`),
       parents = await hierarchy.parentMap(),
       campusOf = await teacherCampus.mappings(),
       secrets = u.role === 'super_admin' ? await security.overview() : null;
@@ -1056,7 +1057,7 @@ export function schoolPlatform(db, domain, documents) {
     return matrix;
   }
   async function deadlines() {
-    const admin = await one("SELECT * FROM users WHERE role='super_admin' AND active=1 LIMIT 1");
+    const admin = await one(`SELECT ${USER_COLUMNS} FROM users WHERE role='super_admin' AND active=1 LIMIT 1`);
     if (!admin) return;
     const date = dateInZone(),
       data = await report(admin, { start: date, end: date }),
@@ -2340,7 +2341,7 @@ export function schoolPlatform(db, domain, documents) {
         await require(u, 'people.manage');
         const placement = await placementInput(u, b, true);
         await transaction(async () => {
-          const old = await one('SELECT * FROM users WHERE id=?', person[1]);
+          const old = await one(`SELECT ${USER_COLUMNS} FROM users WHERE id=?`, person[1]);
           check(old, 'Account not found', 404);
           check(
             u.role === 'super_admin' || !['super_admin', 'school_admin'].includes(old.role),
@@ -2595,7 +2596,7 @@ export function schoolPlatform(db, domain, documents) {
           xs.every((x) => capabilityNames.includes(x));
         await transaction(async () => {
           if (b.user_id) {
-            const target = await one('SELECT * FROM users WHERE id=?', b.user_id);
+            const target = await one(`SELECT ${USER_COLUMNS} FROM users WHERE id=?`, b.user_id);
             check(
               target && target.role !== 'super_admin',
               'Super Admin capabilities cannot be restricted',
